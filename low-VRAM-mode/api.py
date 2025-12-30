@@ -136,7 +136,7 @@ model_path = "/data/qwen2.5-omni-7b-awq"
 model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
     model_path,
     model_type="qwen2_5_omni",
-    torch_dtype=torch.bfloat16,  # 改用 bfloat16
+    torch_dtype=torch.bfloat16,  # 使用 bfloat16 与 Flash Attention 兼容
     attn_implementation="flash_attention_2",
 )
 

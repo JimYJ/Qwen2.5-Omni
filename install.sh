@@ -82,8 +82,8 @@ echo "进程 ID: $$"
 
   # 方法 1: 下载并安装预编译 wheel (推荐)
   echo "下载 flash_attn 预编译 wheel..."
-  WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.6.2/flash_attn-2.6.2+cu123torch2.4cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
-  WHEEL_FILE="flash_attn-2.6.2+cu123torch2.4cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
+  WHEEL_URL="https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.4cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
+  WHEEL_FILE="flash_attn-2.7.4.post1+cu12torch2.4cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
 
   if curl -L -o "$WHEEL_FILE" "$WHEEL_URL" 2>/dev/null; then
     echo "下载成功，开始安装 wheel..."
