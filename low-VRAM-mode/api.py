@@ -142,7 +142,7 @@ model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
     model_path,
     model_type="qwen2_5_omni",
     torch_dtype=torch.float16,  # Use float16 like the demo
-    attn_implementation="flash_attention_2",
+    # attn_implementation="flash_attention_2",
 )
 
 spk_path = model_path + "/spk_dict.pt"
