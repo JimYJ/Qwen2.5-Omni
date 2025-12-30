@@ -140,66 +140,63 @@ model_path = "/data/qwen2.5-omni-7b-awq"
 
 
 # 初始化量化模型与处理器（全局单例，避免重复加载）
-# Load config first and fix all parallel-related issues comprehensively
+print("Loading and fixing model config...")
+
+# Load config and comprehensively fix parallel issues before model creation
 from transformers import AutoConfig
 
-print("Loading model config...")
 config = AutoConfig.from_pretrained(
     model_path,
     trust_remote_code=True,
     local_files_only=True
 )
 
-# Comprehensive fix for all parallel-related configurations
-def fix_parallel_configs(config_obj):
-    """Recursively fix all parallel-related None values in config"""
-    if config_obj is None:
+def fix_config_recursively(obj, path=""):
+    """Recursively fix None values in config that could cause parallel style errors"""
+    if obj is None:
         return
 
-    # Fix direct attributes
-    parallel_attrs = [
-        'parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn',
-        'parallel_layers', 'parallel_blocks', 'parallel_heads', 'parallel_groups'
-    ]
-
-    for attr in parallel_attrs:
-        if hasattr(config_obj, attr):
-            value = getattr(config_obj, attr)
+    if isinstance(obj, dict):
+        for key, value in obj.items():
             if value is None:
-                setattr(config_obj, attr, [])
+                print(f"Fixing None value at {path}.{key}")
+                obj[key] = []
+            else:
+                fix_config_recursively(value, f"{path}.{key}")
+    elif hasattr(obj, '__dict__'):
+        for attr_name in dir(obj):
+            if not attr_name.startswith('_'):
+                try:
+                    value = getattr(obj, attr_name)
+                    if value is None:
+                        print(f"Fixing None attribute {attr_name} at {path}")
+                        setattr(obj, attr_name, [])
+                    elif hasattr(value, '__dict__') or isinstance(value, dict):
+                        fix_config_recursively(value, f"{path}.{attr_name}")
+                except:
+                    pass
 
-    # Recursively fix nested configs
-    for attr_name in dir(config_obj):
-        if not attr_name.startswith('_'):
-            try:
-                value = getattr(config_obj, attr_name)
-                if hasattr(value, '__dict__') and not isinstance(value, (str, int, float, bool, list, tuple)):
-                    fix_parallel_configs(value)
-                elif isinstance(value, (list, tuple)):
-                    # Fix any None values in lists
-                    if any(v is None for v in value):
-                        fixed_list = [v if v is not None else [] for v in value]
-                        setattr(config_obj, attr_name, fixed_list)
-            except:
-                pass
+print("Applying comprehensive config fixes...")
+fix_config_recursively(config, "config")
 
-print("Fixing parallel configurations...")
-fix_parallel_configs(config)
+# Additional explicit fixes for known parallel attributes
+for attr in ['parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn']:
+    if hasattr(config, attr) and getattr(config, attr) is None:
+        setattr(config, attr, [])
 
-# Try to create model with fixed config
-print("Creating AWQ model...")
-try:
-    model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
-        model_path,
-        model_type="qwen2_5_omni",
-        config=config,
-        torch_dtype=torch.float16,
-        # attn_implementation="flash_attention_2",
-    )
-    print("Model created successfully!")
-except Exception as e:
-    print(f"Failed to create model: {e}")
-    raise
+# Fix thinker config too
+if hasattr(config, 'thinker_config') and config.thinker_config:
+    for attr in ['parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn']:
+        if hasattr(config.thinker_config, attr) and getattr(config.thinker_config, attr) is None:
+            setattr(config.thinker_config, attr, [])
+
+print("Creating AWQ model with fixed config...")
+model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
+    model_path,
+    model_type="qwen2_5_omni",
+    config=config,
+    torch_dtype=torch.float16,
+)
 
 spk_path = model_path + "/spk_dict.pt"
 model.model.load_speakers(spk_path)
