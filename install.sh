@@ -9,8 +9,7 @@
 #    - 使用 cargo: cargo install uv
 # 2. 确保 uv 在 PATH 中，或重启终端使 uv 生效
 # 3. 验证安装: uv --version
-#
-# 注意: gptqmodel 需要 torch 和 setuptools 作为构建依赖，脚本会先安装它们然后使用 --no-build-isolation
+
 
 # 检查 uv 是否已安装
 if ! command -v uv &> /dev/null; then
@@ -54,15 +53,10 @@ echo "进程 ID: $$"
   echo "开始安装 accelerate..."
   uv pip install accelerate
 
-  # gptqmodel 需要 torch 和 setuptools 作为构建依赖，先安装它们然后用 --no-build-isolation
-  echo "开始安装 torch（为 gptqmodel 构建做准备）..."
-  uv pip install torch
+  # 检查是否有 CUDA 环境，如果没有则跳过 gptqmodel 安装
 
-  echo "开始安装 setuptools（为 gptqmodel 构建做准备）..."
-  uv pip install setuptools
-
-  echo "开始安装 gptqmodel==2.0.0（使用 --no-build-isolation）..."
-  uv pip install --no-build-isolation gptqmodel==2.0.0
+  echo "开始安装 autoawq==0.2.9"
+  uv pip install autoawq==0.2.9
 
   echo "开始安装 numpy==2.0.0..."
   uv pip install numpy==2.0.0
