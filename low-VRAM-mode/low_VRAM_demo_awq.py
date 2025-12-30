@@ -118,7 +118,7 @@ device_map = {
 }
 device = 'cuda'
 
-model_path = "Qwen/Qwen2.5-Omni-7B-AWQ"
+model_path = "/data/qwen2.5-omni-7b-awq"
 
 model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(  
                                             model_path, 
