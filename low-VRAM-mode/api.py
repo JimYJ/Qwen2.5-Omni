@@ -16,6 +16,11 @@ from pydantic import BaseModel
 # 设置环境变量以避免并行相关的问题
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+# Disable parallelism to avoid parallel style configuration issues
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Use first GPU only
+os.environ["WORLD_SIZE"] = "1"  # Single process
+os.environ["RANK"] = "0"  # Master process
+
 from awq.models.base import BaseAWQForCausalLM
 from transformers import Qwen2_5OmniProcessor
 
@@ -130,38 +135,24 @@ class Qwen2_5_OmniAWQForConditionalGeneration(BaseAWQForCausalLM):
 device = "cuda"
 model_path = "/data/qwen2.5-omni-7b-awq"
 
-# Device map configuration for low VRAM usage
-device_map = {
-    "thinker.model": "cuda",
-    "thinker.lm_head": "cuda",
-    "thinker.visual": "cpu",
-    "thinker.audio_tower": "cpu",
-    "talker": "cuda",
-    "token2wav": "cuda",
-}
 
 # 初始化量化模型与处理器（全局单例，避免重复加载）
-# 临时禁用 Flash Attention 以测试基本功能
-# 如果基本功能正常，再尝试启用 Flash Attention
+# Load model similar to the working demo, without device_map initially
 model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
     model_path,
     model_type="qwen2_5_omni",
-    device_map=device_map,
-    torch_dtype=torch.bfloat16,  # 使用 bfloat16 与 Flash Attention 兼容
+    torch_dtype=torch.float16,  # Use float16 like the demo
     attn_implementation="flash_attention_2",
 )
 
 spk_path = model_path + "/spk_dict.pt"
 model.model.load_speakers(spk_path)
 
-model.model.thinker.model.embed_tokens = (
-    model.model.thinker.model.embed_tokens.to(device)
-)
+# Manually place components on devices like the demo
+model.model.thinker.model.embed_tokens = model.model.thinker.model.embed_tokens.to(device)
 model.model.thinker.visual = model.model.thinker.visual.to(device)
 model.model.thinker.audio_tower = model.model.thinker.audio_tower.to(device)
-model.model.thinker.visual.rotary_pos_emb = (
-    model.model.thinker.visual.rotary_pos_emb.to(device)
-)
+model.model.thinker.visual.rotary_pos_emb = model.model.thinker.visual.rotary_pos_emb.to(device)
 model.model.thinker.model.rotary_emb = model.model.thinker.model.rotary_emb.to(device)
 
 for layer in model.model.thinker.model.layers:
