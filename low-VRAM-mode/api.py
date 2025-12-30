@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from awq.models.base import BaseAWQForCausalLM
 from transformers import Qwen2_5OmniProcessor
-from huggingface_hub import hf_hub_download
 
 from qwen_omni_utils import process_mm_info
 from modeling_qwen2_5_omni_low_VRAM_mode import (
@@ -125,7 +124,7 @@ class Qwen2_5_OmniAWQForConditionalGeneration(BaseAWQForCausalLM):
 
 
 device = "cuda"
-model_path = "Qwen/Qwen2.5-Omni-7B-AWQ"
+model_path = "/data/qwen2.5-omni-7b-awq"
 
 # 初始化量化模型与处理器（全局单例，避免重复加载）
 model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
@@ -135,7 +134,7 @@ model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
     attn_implementation="flash_attention_2",
 )
 
-spk_path = hf_hub_download(repo_id=model_path, filename="spk_dict.pt")
+spk_path = model_path + "/spk_dict.pt"
 model.model.load_speakers(spk_path)
 
 model.model.thinker.model.embed_tokens = (
@@ -151,7 +150,7 @@ model.model.thinker.model.rotary_emb = model.model.thinker.model.rotary_emb.to(d
 for layer in model.model.thinker.model.layers:
     layer.self_attn.rotary_emb = layer.self_attn.rotary_emb.to(device)
 
-processor = Qwen2_5OmniProcessor.from_pretrained(model_path)
+processor = Qwen2_5OmniProcessor.from_pretrained(model_path, local_files_only=True)
 
 
 # -------- OpenAI 兼容的数据模型 --------
