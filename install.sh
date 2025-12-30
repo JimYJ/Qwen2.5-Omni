@@ -60,6 +60,9 @@ echo "进程 ID: $$"
 
   echo "开始安装 numpy==2.0.0..."
   uv pip install numpy==2.0.0
+
+  echo "开始安装 torchvision >= 0.19.0..."
+  uv pip install torchvision >= 0.19.0
   
   echo "所有包安装完成！"
   echo ""
