@@ -21,6 +21,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Use first GPU only
 os.environ["WORLD_SIZE"] = "1"  # Single process
 os.environ["RANK"] = "0"  # Master process
 
+# Set parallel style to avoid None errors
+os.environ["PARALLEL_STYLE"] = "none"
+
 from awq.models.base import BaseAWQForCausalLM
 from transformers import Qwen2_5OmniProcessor
 
@@ -137,7 +140,23 @@ model_path = "/data/qwen2.5-omni-7b-awq"
 
 
 # 初始化量化模型与处理器（全局单例，避免重复加载）
-# Load model similar to the working demo, without device_map initially
+# Patch post_init to handle None parallel styles
+from transformers import modeling_utils
+
+original_post_init = modeling_utils.PreTrainedModel.post_init
+
+def patched_post_init(self):
+    # Handle None parallel_devices and parallel_style
+    if hasattr(self.config, 'parallel_devices') and self.config.parallel_devices is None:
+        self.config.parallel_devices = []
+    if hasattr(self.config, 'parallel_style') and self.config.parallel_style is None:
+        self.config.parallel_style = "none"
+    # Call original post_init
+    return original_post_init(self)
+
+modeling_utils.PreTrainedModel.post_init = patched_post_init
+
+# Load model similar to the working demo
 model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
     model_path,
     model_type="qwen2_5_omni",
