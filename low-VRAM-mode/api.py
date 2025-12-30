@@ -130,12 +130,23 @@ class Qwen2_5_OmniAWQForConditionalGeneration(BaseAWQForCausalLM):
 device = "cuda"
 model_path = "/data/qwen2.5-omni-7b-awq"
 
+# Device map configuration for low VRAM usage
+device_map = {
+    "thinker.model": "cuda",
+    "thinker.lm_head": "cuda",
+    "thinker.visual": "cpu",
+    "thinker.audio_tower": "cpu",
+    "talker": "cuda",
+    "token2wav": "cuda",
+}
+
 # 初始化量化模型与处理器（全局单例，避免重复加载）
 # 临时禁用 Flash Attention 以测试基本功能
 # 如果基本功能正常，再尝试启用 Flash Attention
 model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
     model_path,
     model_type="qwen2_5_omni",
+    device_map=device_map,
     torch_dtype=torch.bfloat16,  # 使用 bfloat16 与 Flash Attention 兼容
     attn_implementation="flash_attention_2",
 )
