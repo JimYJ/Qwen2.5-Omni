@@ -151,44 +151,43 @@ config = AutoConfig.from_pretrained(
     local_files_only=True
 )
 
-def fix_config_recursively(obj, path=""):
-    """Recursively fix None values in config that could cause parallel style errors"""
+# Only fix the specific parallel-related attributes that cause the original error
+# Don't blindly fix all None values as they may be expected to be None or other types
+
+print("Fixing parallel-related attributes...")
+
+# Fix parallel attributes that are checked in post_init
+parallel_attrs_to_fix = [
+    'parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn',
+    'parallel_layers', 'parallel_blocks', 'parallel_heads', 'parallel_groups'
+]
+
+def fix_parallel_attrs(obj):
+    """Fix only parallel-related attributes that are None"""
     if obj is None:
         return
 
-    if isinstance(obj, dict):
-        for key, value in obj.items():
+    for attr in parallel_attrs_to_fix:
+        if hasattr(obj, attr):
+            value = getattr(obj, attr)
             if value is None:
-                print(f"Fixing None value at {path}.{key}")
-                obj[key] = []
-            else:
-                fix_config_recursively(value, f"{path}.{key}")
-    elif hasattr(obj, '__dict__'):
-        for attr_name in dir(obj):
-            if not attr_name.startswith('_'):
-                try:
-                    value = getattr(obj, attr_name)
-                    if value is None:
-                        print(f"Fixing None attribute {attr_name} at {path}")
-                        setattr(obj, attr_name, [])
-                    elif hasattr(value, '__dict__') or isinstance(value, dict):
-                        fix_config_recursively(value, f"{path}.{attr_name}")
-                except:
-                    pass
+                print(f"Fixing None parallel attribute: {attr}")
+                setattr(obj, attr, [])
 
-print("Applying comprehensive config fixes...")
-fix_config_recursively(config, "config")
+    # Recursively check nested config objects
+    if hasattr(obj, 'thinker_config') and obj.thinker_config:
+        fix_parallel_attrs(obj.thinker_config)
 
-# Additional explicit fixes for known parallel attributes
-for attr in ['parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn']:
-    if hasattr(config, attr) and getattr(config, attr) is None:
-        setattr(config, attr, [])
+    if hasattr(obj, 'audio_tower_config') and obj.audio_tower_config:
+        fix_parallel_attrs(obj.audio_tower_config)
 
-# Fix thinker config too
-if hasattr(config, 'thinker_config') and config.thinker_config:
-    for attr in ['parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn']:
-        if hasattr(config.thinker_config, attr) and getattr(config.thinker_config, attr) is None:
-            setattr(config.thinker_config, attr, [])
+    if hasattr(obj, 'visual_config') and obj.visual_config:
+        fix_parallel_attrs(obj.visual_config)
+
+    if hasattr(obj, 'token2wav_config') and obj.token2wav_config:
+        fix_parallel_attrs(obj.token2wav_config)
+
+fix_parallel_attrs(config)
 
 print("Creating AWQ model with fixed config...")
 model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
