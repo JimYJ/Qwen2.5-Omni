@@ -120,11 +120,11 @@ device = 'cuda'
 
 model_path = "/data/qwen2.5-omni-7b-awq"
 
-model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(  
-                                            model_path, 
+model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
+                                            model_path,
                                             model_type="qwen2_5_omni",
-                                            # device_map=device_map, 
-                                            torch_dtype=torch.float16,   
+                                            # device_map=device_map,
+                                            torch_dtype=torch.float16,
                                             attn_implementation="flash_attention_2"
                                         )
 

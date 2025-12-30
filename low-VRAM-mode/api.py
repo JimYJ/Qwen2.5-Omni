@@ -4,6 +4,7 @@ import sys
 import time
 import base64
 import importlib.util
+import os
 from typing import List, Optional, Literal, Union, Any, Dict
 
 import torch
@@ -11,6 +12,9 @@ import soundfile as sf
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
+
+# 设置环境变量以避免并行相关的问题
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 from awq.models.base import BaseAWQForCausalLM
 from transformers import Qwen2_5OmniProcessor
@@ -127,10 +131,12 @@ device = "cuda"
 model_path = "/data/qwen2.5-omni-7b-awq"
 
 # 初始化量化模型与处理器（全局单例，避免重复加载）
+# 临时禁用 Flash Attention 以测试基本功能
+# 如果基本功能正常，再尝试启用 Flash Attention
 model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
     model_path,
     model_type="qwen2_5_omni",
-    torch_dtype=torch.float16,
+    torch_dtype=torch.bfloat16,  # 改用 bfloat16
     attn_implementation="flash_attention_2",
 )
 
