@@ -118,18 +118,18 @@ device_map = {
 }
 device = 'cuda'
 
-model_path = "Qwen/Qwen2.5-Omni-7B-AWQ"
+model_path = "/data/qwen2.5-omni-7b-awq"
 
-model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(  
-                                            model_path, 
+model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
+                                            model_path,
                                             model_type="qwen2_5_omni",
-                                            # device_map=device_map, 
-                                            torch_dtype=torch.float16,   
+                                            # device_map=device_map,
+                                            torch_dtype=torch.float16,
                                             attn_implementation="flash_attention_2"
                                         )
 
-# spk_path = model_path + '/spk_dict.pt' # use this line if you load model from local
-spk_path = hf_hub_download(repo_id=model_path, filename='spk_dict.pt')
+spk_path = model_path + '/spk_dict.pt' # use this line if you load model from local
+# spk_path = hf_hub_download(repo_id=model_path, filename='spk_dict.pt')
 
 model.model.load_speakers(spk_path)
 
@@ -143,7 +143,7 @@ for layer in model.model.thinker.model.layers:
     layer.self_attn.rotary_emb = layer.self_attn.rotary_emb.to(device)
 
 
-processor = Qwen2_5OmniProcessor.from_pretrained(model_path)
+processor = Qwen2_5OmniProcessor.from_pretrained(model_path, local_files_only=True)
 
 def video_inference(video_path, prompt, sys_prompt):
     messages = [
