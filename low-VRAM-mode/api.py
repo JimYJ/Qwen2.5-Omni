@@ -140,19 +140,49 @@ model_path = "/data/qwen2.5-omni-7b-awq"
 
 
 # 初始化量化模型与处理器（全局单例，避免重复加载）
-# Patch post_init to handle None parallel styles
-from transformers import modeling_utils
+# More comprehensive patch to handle the parallel styles check
+import transformers.modeling_utils as modeling_utils
 
+# Store original post_init
 original_post_init = modeling_utils.PreTrainedModel.post_init
 
+# Patch the specific line that causes the error
 def patched_post_init(self):
-    # Handle None parallel_devices and parallel_style
-    if hasattr(self.config, 'parallel_devices') and self.config.parallel_devices is None:
-        self.config.parallel_devices = []
-    if hasattr(self.config, 'parallel_style') and self.config.parallel_style is None:
-        self.config.parallel_style = "none"
-    # Call original post_init
-    return original_post_init(self)
+    # Get the config
+    config = self.config
+
+    # Handle known parallel-related attributes
+    if hasattr(config, 'parallel_devices') and config.parallel_devices is None:
+        config.parallel_devices = []
+    if hasattr(config, 'parallel_style') and config.parallel_style is None:
+        config.parallel_style = "none"
+
+    # Try to find any attribute that might be None and could be checked
+    for attr_name in ['parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn']:
+        if hasattr(config, attr_name):
+            value = getattr(config, attr_name)
+            if value is None:
+                setattr(config, attr_name, [])
+
+    # Call the original method but catch and handle the error
+    try:
+        return original_post_init(self)
+    except TypeError as e:
+        if "argument of type 'NoneType' is not iterable" in str(e):
+            # Find the problematic attribute and fix it
+            print(f"Caught parallel style error, attempting to fix: {e}")
+            for attr_name in dir(config):
+                if not attr_name.startswith('_'):
+                    try:
+                        value = getattr(config, attr_name)
+                        if value is None:
+                            setattr(config, attr_name, [])
+                    except:
+                        pass
+            # Try again
+            return original_post_init(self)
+        else:
+            raise e
 
 modeling_utils.PreTrainedModel.post_init = patched_post_init
 
