@@ -140,59 +140,66 @@ model_path = "/data/qwen2.5-omni-7b-awq"
 
 
 # 初始化量化模型与处理器（全局单例，避免重复加载）
-# More comprehensive patch to handle the parallel styles check
-import transformers.modeling_utils as modeling_utils
+# Load config first and fix all parallel-related issues comprehensively
+from transformers import AutoConfig
 
-# Store original post_init
-original_post_init = modeling_utils.PreTrainedModel.post_init
-
-# Patch the specific line that causes the error
-def patched_post_init(self):
-    # Get the config
-    config = self.config
-
-    # Handle known parallel-related attributes
-    if hasattr(config, 'parallel_devices') and config.parallel_devices is None:
-        config.parallel_devices = []
-    if hasattr(config, 'parallel_style') and config.parallel_style is None:
-        config.parallel_style = "none"
-
-    # Try to find any attribute that might be None and could be checked
-    for attr_name in ['parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn']:
-        if hasattr(config, attr_name):
-            value = getattr(config, attr_name)
-            if value is None:
-                setattr(config, attr_name, [])
-
-    # Call the original method but catch and handle the error
-    try:
-        return original_post_init(self)
-    except TypeError as e:
-        if "argument of type 'NoneType' is not iterable" in str(e):
-            # Find the problematic attribute and fix it
-            print(f"Caught parallel style error, attempting to fix: {e}")
-            for attr_name in dir(config):
-                if not attr_name.startswith('_'):
-                    try:
-                        value = getattr(config, attr_name)
-                        if value is None:
-                            setattr(config, attr_name, [])
-                    except:
-                        pass
-            # Try again
-            return original_post_init(self)
-        else:
-            raise e
-
-modeling_utils.PreTrainedModel.post_init = patched_post_init
-
-# Load model similar to the working demo
-model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
+print("Loading model config...")
+config = AutoConfig.from_pretrained(
     model_path,
-    model_type="qwen2_5_omni",
-    torch_dtype=torch.float16,  # Use float16 like the demo
-    # attn_implementation="flash_attention_2",
+    trust_remote_code=True,
+    local_files_only=True
 )
+
+# Comprehensive fix for all parallel-related configurations
+def fix_parallel_configs(config_obj):
+    """Recursively fix all parallel-related None values in config"""
+    if config_obj is None:
+        return
+
+    # Fix direct attributes
+    parallel_attrs = [
+        'parallel_devices', 'parallel_style', 'parallel_context', 'parallel_attn',
+        'parallel_layers', 'parallel_blocks', 'parallel_heads', 'parallel_groups'
+    ]
+
+    for attr in parallel_attrs:
+        if hasattr(config_obj, attr):
+            value = getattr(config_obj, attr)
+            if value is None:
+                setattr(config_obj, attr, [])
+
+    # Recursively fix nested configs
+    for attr_name in dir(config_obj):
+        if not attr_name.startswith('_'):
+            try:
+                value = getattr(config_obj, attr_name)
+                if hasattr(value, '__dict__') and not isinstance(value, (str, int, float, bool, list, tuple)):
+                    fix_parallel_configs(value)
+                elif isinstance(value, (list, tuple)):
+                    # Fix any None values in lists
+                    if any(v is None for v in value):
+                        fixed_list = [v if v is not None else [] for v in value]
+                        setattr(config_obj, attr_name, fixed_list)
+            except:
+                pass
+
+print("Fixing parallel configurations...")
+fix_parallel_configs(config)
+
+# Try to create model with fixed config
+print("Creating AWQ model...")
+try:
+    model = Qwen2_5_OmniAWQForConditionalGeneration.from_quantized(
+        model_path,
+        model_type="qwen2_5_omni",
+        config=config,
+        torch_dtype=torch.float16,
+        # attn_implementation="flash_attention_2",
+    )
+    print("Model created successfully!")
+except Exception as e:
+    print(f"Failed to create model: {e}")
+    raise
 
 spk_path = model_path + "/spk_dict.pt"
 model.model.load_speakers(spk_path)
