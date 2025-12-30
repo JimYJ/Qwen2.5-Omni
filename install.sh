@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 使用 uv 创建虚拟环境并安装包，所有输出重定向到 install.log，并在后台执行
-# 
+#
 # 准备工作：
 # 1. 安装 uv（选择以下任一方式）:
 #    - 官方安装脚本: curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -9,6 +9,8 @@
 #    - 使用 cargo: cargo install uv
 # 2. 确保 uv 在 PATH 中，或重启终端使 uv 生效
 # 3. 验证安装: uv --version
+#
+# 注意: gptqmodel 需要 torch 作为构建依赖，脚本会先安装 torch 然后使用 --no-build-isolation
 
 # 检查 uv 是否已安装
 if ! command -v uv &> /dev/null; then
@@ -48,13 +50,17 @@ echo "进程 ID: $$"
   # 使用虚拟环境安装包（uv 会自动检测当前目录下的 .venv）
   echo "开始安装 transformers==4.52.3..."
   uv pip install transformers==4.52.3
-  
+
   echo "开始安装 accelerate..."
   uv pip install accelerate
-  
-  echo "开始安装 gptqmodel==2.0.0..."
-  uv pip install gptqmodel==2.0.0
-  
+
+  # gptqmodel 需要 torch 作为构建依赖，先安装 torch 然后用 --no-build-isolation
+  echo "开始安装 torch（为 gptqmodel 构建做准备）..."
+  uv pip install torch
+
+  echo "开始安装 gptqmodel==2.0.0（使用 --no-build-isolation）..."
+  uv pip install --no-build-isolation gptqmodel==2.0.0
+
   echo "开始安装 numpy==2.0.0..."
   uv pip install numpy==2.0.0
   
